@@ -19,11 +19,7 @@ from .api import inventory_routes ,  supplier_routes , purchase_routes , pos_rou
 # --- Create ONE FastAPI app ---
 app = FastAPI(title="MyShopApp API")
 
-origins = [
-    "http://localhost:3000", # The origin for your Next.js app
-    # You might add your production frontend URL here later
-    # e.g., "https://your-live-app.vercel.app"
-]
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
