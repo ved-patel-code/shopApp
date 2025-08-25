@@ -39,7 +39,7 @@ export default function LoginPage() {
       await axios.post("http://127.0.0.1:8000/auth/login", { email });
       setSuccess("Login code sent! Check your email.");
       setStep(2); // Move to OTP entry step
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response) {
         setError(err.response.data.detail || "Failed to send login code.");
       } else {
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
         // Redirect to the homepage after successful login
         router.push("/");
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err) && err.response) {
           setError(err.response.data.detail || "Invalid or expired OTP.");
         } else {

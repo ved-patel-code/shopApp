@@ -38,7 +38,7 @@ export default function SignupPage() {
       );
       setName("");
       setEmail("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response) {
         setError(
           err.response.data.detail || "An error occurred during sign up."
