@@ -9,13 +9,14 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Trash2 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAppSettings } from "@/lib/use-app-settings"; 
 // --- Type Definitions for our data ---
 interface ProductSearchResult {
+  $id: string;
   id: string;
   product_name: string;
   product_code: string;
@@ -52,38 +53,35 @@ export default function PosPage() {
   const { settings } = useAppSettings(); // <-- Use the hook
 
   // --- Initialize printBill state from our global settings ---
-  const [printBill, setPrintBill] = useState(false); 
+  const [printBill, setPrintBill] = useState(false);
   useEffect(() => {
     setPrintBill(settings.defaultToPrintBill);
   }, [settings.defaultToPrintBill]);
 
-   const billTotals = useMemo(() => {
-     let subtotal = 0;
-     let totalTax = 0;
+  const billTotals = useMemo(() => {
+    let subtotal = 0;
+    let totalTax = 0;
 
-     for (const item of billItems) {
-       // Calculate the total for this line item before tax
-       const lineItemTotal = item.quantity * item.selling_price;
-       subtotal += lineItemTotal;
+    for (const item of billItems) {
+      // Calculate the total for this line item before tax
+      const lineItemTotal = item.quantity * item.selling_price;
+      subtotal += lineItemTotal;
 
-       // Calculate the tax for this specific line item and add it to the total tax
-       if (item.tax_percentage > 0) {
-         const lineItemTax = lineItemTotal * (item.tax_percentage / 100);
-         totalTax += lineItemTax;
-       }
-     }
+      // Calculate the tax for this specific line item and add it to the total tax
+      if (item.tax_percentage > 0) {
+        const lineItemTax = lineItemTotal * (item.tax_percentage / 100);
+        totalTax += lineItemTax;
+      }
+    }
 
-     const grandTotal = subtotal + totalTax;
+    const grandTotal = subtotal + totalTax;
 
-     return { subtotal, tax: totalTax, grandTotal };
-   }, [billItems]);
+    return { subtotal, tax: totalTax, grandTotal };
+  }, [billItems]);
 
-    useEffect(() => {
-      setPrintBill(settings.defaultToPrintBill);
-    }, [settings.defaultToPrintBill]);
-
-
-
+  useEffect(() => {
+    setPrintBill(settings.defaultToPrintBill);
+  }, [settings.defaultToPrintBill]);
 
   useEffect(() => {
     if (searchQuery.trim().length < 1) {
@@ -98,7 +96,9 @@ export default function PosPage() {
         const response = await apiClient.get(
           `/inventory/products/search?query=${searchQuery}`
         );
-        setSearchResults(response.data.map((p: any) => ({ ...p, id: p.$id })));
+        setSearchResults(
+          response.data.map((p: ProductSearchResult) => ({ ...p, id: p.$id }))
+        );
       } catch (error) {
         console.error("Failed to search products:", error);
         setSearchResults([]);
@@ -110,22 +110,7 @@ export default function PosPage() {
     return () => clearTimeout(searchTimer);
   }, [searchQuery]);
 
-  // --- Debounced Quantity Change Logic ---
-  useEffect(() => {
-    if (!updatingLineId) return;
-
-    const itemToUpdate = billItems.find(
-      (item) => item.line_id === updatingLineId
-    );
-    if (!itemToUpdate) return;
-
-    const debounceTimer = setTimeout(() => {
-      runFifoSimulation(itemToUpdate);
-      setUpdatingLineId(null);
-    }, 750); // 750ms delay
-
-    return () => clearTimeout(debounceTimer);
-  }, [billItems, updatingLineId]); // Note: We will define runFifoSimulation with useCallback so it's stable
+  // Note: We will define runFifoSimulation with useCallback so it's stable
 
   // --- Handler Functions ---
 
@@ -158,7 +143,13 @@ export default function PosPage() {
         throw new Error("Simulation failed to return a valid batch.");
       }
 
-      const lineItem = response.data.line_items[0];
+      const lineItem: {
+        batch_id: string;
+        quantity_to_sell: number;
+        cost_price: number;
+        suggested_selling_price: number;
+        available_stock_in_batch: number;
+      } = response.data.line_items[0];
       const newBillItem: BillItem = {
         line_id: lineItem.batch_id,
         product_id: product.id,
@@ -197,11 +188,12 @@ export default function PosPage() {
     setUpdatingLineId(line_id);
   };
 
-  const handleRemoveItem = (product_id: string) => {
-    setBillItems((prevItems) =>
-      prevItems.filter((item) => item.product_id !== product_id)
-    );
-  };
+ const handleRemoveItem = useCallback((product_id: string) => {
+   setBillItems((prevItems) =>
+     prevItems.filter((item) => item.product_id !== product_id)
+   );
+ }, []);
+
 
   const handlePriceChange = (line_id: string, newPrice: number) => {
     // This is a simple local update, no backend call needed until checkout.
@@ -218,7 +210,6 @@ export default function PosPage() {
       prevItems.filter((item) => item.line_id !== line_id_to_remove)
     );
   };
-
 
   const handleCheckout = async (paymentMethod: "Cash" | "UPI") => {
     if (billItems.length === 0) {
@@ -314,7 +305,13 @@ export default function PosPage() {
 
         if (response.data.is_sufficient_stock) {
           const newBillItemsFromSim = response.data.line_items.map(
-            (simItem: any): BillItem => ({
+            (simItem: {
+              batch_id: string;
+              quantity_to_sell: number;
+              cost_price: number;
+              suggested_selling_price: number;
+              available_stock_in_batch: number;
+            }): BillItem => ({
               line_id: simItem.batch_id,
               product_id: itemToUpdate.product_id,
               product_name: itemToUpdate.product_name,
@@ -370,6 +367,23 @@ export default function PosPage() {
     },
     [billItems, toast, handleRemoveItem]
   );
+
+  // --- Debounced Quantity Change Logic ---
+  useEffect(() => {
+    if (!updatingLineId) return;
+
+    const itemToUpdate = billItems.find(
+      (item) => item.line_id === updatingLineId
+    );
+    if (!itemToUpdate) return;
+
+    const debounceTimer = setTimeout(() => {
+      runFifoSimulation(itemToUpdate);
+      setUpdatingLineId(null);
+    }, 500); // 750ms delay
+
+    return () => clearTimeout(debounceTimer);
+  }, [billItems, updatingLineId, runFifoSimulation]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -508,7 +522,7 @@ export default function PosPage() {
                         />
                       </TableCell>
                       <TableCell className="font-semibold">
-                        {/* --- DYNAMIC TOTAL CALCULATION --- */}₹
+                        ₹
                         {(item.quantity * item.selling_price).toFixed(2)}
                       </TableCell>
                       <TableCell>
