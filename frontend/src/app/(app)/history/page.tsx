@@ -203,10 +203,10 @@ export default function OrderHistoryPage() {
           const overriddenItems = itemsSold.filter(
             (item) =>
               item.original_selling_price_per_unit != null &&
-              item.actual_selling_price_per_unit != null &&
-              item.original_selling_price_per_unit !==
-                item.actual_selling_price_per_unit
-          );
+            item.actual_selling_price_per_unit != null &&
+            item.original_selling_price_per_unit !==
+            item.actual_selling_price_per_unit
+        );
 
           if (overriddenItems.length > 0) {
             const summary = validSummaries.find(

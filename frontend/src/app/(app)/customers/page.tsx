@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Search, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { AddItemToTabModal } from "@/components/modals/add-item-to-tab-modal";
+
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import apiClient from "@/lib/api";
-import { AddSupplierForm } from "@/components/forms/add-supplier-form"; // We will rename/replace this
+
 import { AddCustomerForm } from "@/components/forms/add-customer-form"; // This is what we will create
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
