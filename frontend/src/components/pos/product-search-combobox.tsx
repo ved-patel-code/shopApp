@@ -24,6 +24,16 @@ interface ProductSearchComboboxProps {
   onProductSelect: (product: SearchResultProduct) => void;
 }
 
+interface BackendProductResponse {
+  $id: string;
+  product_name: string;
+  product_code: string;
+  current_total_stock: number;
+  global_selling_price: number;
+  tax_percentage: number;
+}
+
+
 export function ProductSearchCombobox({
   onProductSelect,
 }: ProductSearchComboboxProps) {
@@ -40,7 +50,16 @@ export function ProductSearchCombobox({
       apiClient
         .get(`/inventory/products/search?query=${debouncedQuery}`)
         .then((res) => {
-          const formatted = res.data.map((p: any) => ({ ...p, id: p.$id }));
+          const formatted: SearchResultProduct[] = res.data.map(
+            (p: BackendProductResponse) => ({
+              id: p.$id, // Map $id from backend to 'id' in your frontend interface
+              product_name: p.product_name,
+              product_code: p.product_code,
+              current_total_stock: p.current_total_stock,
+              global_selling_price: p.global_selling_price,
+              tax_percentage: p.tax_percentage,
+            })
+          );
           setResults(formatted);
         })
         .catch((err) => console.error("Search failed:", err))
