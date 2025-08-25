@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import apiClient from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 // Define the updated Customer object we expect back from the API
 interface Customer {
@@ -59,9 +60,16 @@ export function SettlePaymentForm({
       const updatedCustomer = { ...response.data, id: response.data.$id };
       toast({ title: "Success", description: "Payment settled successfully." });
       onSuccess(updatedCustomer);
-    } catch (err: any) {
-      let errorMessage =
-        err.response?.data?.detail || "An unexpected error occurred.";
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
+      const errorMessage = // Changed 'let' to 'const'
+        (axios.isAxiosError(err) && err.response?.data?.detail) ||
+        (err instanceof Error ? err.message : "An unexpected error occurred.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: errorMessage,
+      });
       toast({
         variant: "destructive",
         title: "Error",
