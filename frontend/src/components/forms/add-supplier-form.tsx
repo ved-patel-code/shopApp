@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import apiClient from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 // Define the full Supplier type
 interface Supplier {
@@ -54,24 +55,36 @@ export function AddSupplierForm({ onSuccess }: AddSupplierFormProps) {
       const newSupplier = { ...response.data, id: response.data.$id };
       toast({ title: "Success", description: "Supplier added successfully." });
       onSuccess(newSupplier); // <-- Now returns the full Supplier object
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Use unknown for better type safety
       // --- ROBUST ERROR HANDLING ---
       let errorMessage = "An unexpected error occurred.";
-      if (err.response) {
-        // Handle specific status codes
-        if (err.response.status === 409) {
+      if (axios.isAxiosError(err)) {
+        // Use axios.isAxiosError to narrow the type
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          // Handle specific status codes
+          if (err.response.status === 409) {
+            errorMessage =
+              err.response.data.detail || "This supplier already exists.";
+          } else if (err.response.status === 422) {
+            // Potentially parse validation errors if needed
+            errorMessage = "Please check your input. Some fields are invalid.";
+          } else {
+            errorMessage =
+              err.response.data.detail ||
+              `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
           errorMessage =
-            err.response.data.detail || "This supplier already exists.";
-        } else if (err.response.status === 422) {
-          // Potentially parse validation errors if needed
-          errorMessage = "Please check your input. Some fields are invalid.";
+            "Could not connect to the server. Please check your network.";
         } else {
-          errorMessage =
-            err.response.data.detail || `Server error: ${err.response.status}`;
+          // Fallback for Axios errors that don't have response or request
+          errorMessage = err.message;
         }
-      } else if (err.request) {
-        errorMessage =
-          "Could not connect to the server. Please check your network.";
+      } else if (err instanceof Error) {
+        // Check if it's a generic Error object
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
