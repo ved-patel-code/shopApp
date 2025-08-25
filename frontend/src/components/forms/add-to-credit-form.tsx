@@ -9,13 +9,15 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Trash2 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 // --- Type Definitions for our data ---
 interface ProductSearchResult {
+  $id: string;
   id: string;
   product_name: string;
   product_code: string;
@@ -96,7 +98,9 @@ export function AddToCreditForm({
         const response = await apiClient.get(
           `/inventory/products/search?query=${searchQuery}`
         );
-        setSearchResults(response.data.map((p: any) => ({ ...p, id: p.$id })));
+        setSearchResults(
+           response.data.map((p: ProductSearchResult) => ({ ...p, id: p.$id }))
+         );
       } catch (error) {
         console.error("Failed to search products:", error);
         setSearchResults([]);
@@ -109,21 +113,7 @@ export function AddToCreditForm({
   }, [searchQuery]);
 
   // --- Debounced Quantity Change Logic ---
-  useEffect(() => {
-    if (!updatingLineId) return;
-
-    const itemToUpdate = billItems.find(
-      (item) => item.line_id === updatingLineId
-    );
-    if (!itemToUpdate) return;
-
-    const debounceTimer = setTimeout(() => {
-      runFifoSimulation(itemToUpdate);
-      setUpdatingLineId(null);
-    }, 750); // 750ms delay
-
-    return () => clearTimeout(debounceTimer);
-  }, [billItems, updatingLineId]); // Note: We will define runFifoSimulation with useCallback so it's stable
+ // Note: We will define runFifoSimulation with useCallback so it's stable
 
   // --- Handler Functions ---
 
@@ -156,7 +146,14 @@ export function AddToCreditForm({
         throw new Error("Simulation failed to return a valid batch.");
       }
 
-      const lineItem = response.data.line_items[0];
+      const lineItem: {
+        batch_id: string;
+        quantity_to_sell: number;
+        cost_price: number;
+        suggested_selling_price: number;
+        available_stock_in_batch: number;
+      } = response.data.line_items[0];
+
       const newBillItem: BillItem = {
         line_id: lineItem.batch_id,
         product_id: product.id,
@@ -171,12 +168,17 @@ export function AddToCreditForm({
       };
 
       setBillItems((prevItems) => [...prevItems, newBillItem]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Use unknown
+      let errorMessage = "Failed to add product to bill.";
+      if (axios.isAxiosError(err) && err.response) {
+        errorMessage =
+          err.response.data.detail || `Server error: ${err.response.status}`;
+      }
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          err.response?.data?.detail || "Failed to add product to bill.",
+        description: errorMessage || "Failed to add product to bill.",
       });
     } finally {
       setSearchQuery("");
@@ -195,11 +197,11 @@ export function AddToCreditForm({
     setUpdatingLineId(line_id);
   };
 
-  const handleRemoveItem = (product_id: string) => {
+  const handleRemoveItem = useCallback((product_id: string) => {
     setBillItems((prevItems) =>
       prevItems.filter((item) => item.product_id !== product_id)
     );
-  };
+  }, []);
 
   const handlePriceChange = (line_id: string, newPrice: number) => {
     // This is a simple local update, no backend call needed until checkout.
@@ -307,33 +309,34 @@ export function AddToCreditForm({
         description: "Items added to customer's tab.",
       });
       onSuccess(response.data); // Pass the updated customer data back to the parent
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Use unknown
       let errorMessage = "An unexpected error occurred.";
 
-      if (err.response && err.response.data) {
-        const errorDetail = err.response.data.detail;
+      if (axios.isAxiosError(err)) {
+        // Use type guard
+        if (err.response && err.response.data) {
+          const errorDetail = err.response.data.detail;
 
-        // Check if the detail is an array (likely a 422 validation error)
-        if (Array.isArray(errorDetail) && errorDetail.length > 0) {
-          // Format the first validation error into a readable string
-          const firstError = errorDetail[0];
-          const location = firstError.loc
-            ? firstError.loc.slice(1).join(" > ")
-            : "input";
-          errorMessage = `Invalid ${location}: ${firstError.msg}`;
+          if (Array.isArray(errorDetail) && errorDetail.length > 0) {
+            const firstError = errorDetail[0];
+            const location = firstError.loc
+              ? firstError.loc.slice(1).join(" > ")
+              : "input";
+            errorMessage = `Invalid ${location}: ${firstError.msg}`;
+          } else if (typeof errorDetail === "string") {
+            errorMessage = errorDetail;
+          } else {
+            errorMessage = `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
+        } else {
+          errorMessage = err.message; // Generic Axios error message
         }
-        // Check if the detail is a simple string (for other errors like 404, 409)
-        else if (typeof errorDetail === "string") {
-          errorMessage = errorDetail;
-        }
-        // Fallback for other unexpected object shapes
-        else {
-          errorMessage = `Server error: ${err.response.status}`;
-        }
-      } else if (err.request) {
-        errorMessage = "Could not connect to the server.";
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
-
       toast({
         variant: "destructive",
         title: "Failed to Add Items",
@@ -422,12 +425,18 @@ export function AddToCreditForm({
             handleRemoveItem(itemToUpdate.product_id);
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        // Use unknown
+        let errorMessage = "Failed to update quantity.";
+        if (axios.isAxiosError(error) && error.response) {
+          errorMessage =
+            error.response.data.detail ||
+            `Server error: ${error.response.status}`;
+        }
         toast({
           variant: "destructive",
           title: "Error",
-          description:
-            error.response?.data?.detail || "Failed to update quantity.",
+          description: errorMessage || "Failed to update quantity.",
         });
         // On API error, it's safest to just log and let the user manually correct.
         console.error("API error during simulation:", error);
@@ -435,6 +444,22 @@ export function AddToCreditForm({
     },
     [billItems, toast, handleRemoveItem]
   );
+
+    useEffect(() => {
+      if (!updatingLineId) return;
+
+      const itemToUpdate = billItems.find(
+        (item) => item.line_id === updatingLineId
+      );
+      if (!itemToUpdate) return;
+
+      const debounceTimer = setTimeout(() => {
+        runFifoSimulation(itemToUpdate);
+        setUpdatingLineId(null);
+      }, 500); // 750ms delay
+
+      return () => clearTimeout(debounceTimer);
+    }, [billItems, updatingLineId, runFifoSimulation]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
