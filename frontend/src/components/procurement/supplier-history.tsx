@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge"; // A nice UI for status
 import { Skeleton } from "../ui/skeleton";
+import axios from "axios";
 
 // --- Type Definitions (based on your API docs) ---
 interface Supplier {
@@ -84,7 +85,13 @@ export function SupplierHistory() {
       try {
         setIsLoadingSuppliers(true);
         const response = await apiClient.get("/suppliers");
-        const normalized = response.data.map((s: any) => ({
+        const normalized: Supplier[] = response.data.map((s: {
+          $id: string;
+          name: string;
+          contact: string;
+          address?: string;
+          gstin_number?: string;
+        }) => ({
           ...s,
           id: s.$id, // map $id → id
         }));
@@ -123,10 +130,19 @@ export function SupplierHistory() {
         console.log("Raw purchases response:", response.data);
 
         // response.data is already an array
-        const formattedOrders = response.data.map((order: any) => ({
-          ...order,
-          id: order.$id, // normalize for React keys + table
-        }));
+        const formattedOrders: PurchaseOrder[] = response.data.map(
+          (order: {
+            $id: string;
+            supplier_id: string;
+            purchase_date: string;
+            total_amount_owed: number;
+            payment_status: "Paid" | "Unpaid";
+            items_received: PurchaseItem[];
+          }) => ({
+            ...order,
+            id: order.$id, // normalize for React keys + table
+          })
+        );
 
         setAllPurchaseOrders(formattedOrders);
       } catch (error) {
@@ -159,7 +175,7 @@ export function SupplierHistory() {
           new Date(b.purchase_date).getTime() -
           new Date(a.purchase_date).getTime()
       ); // Newest first
-  }, [allPurchaseOrders, statusFilter]);
+  }, [allPurchaseOrders, statusFilter, selectedSupplier]);
 
   const handleMarkAsPaid = async (order: PurchaseOrder) => {
     // Guard clause: do nothing if already paid. This is good practice.
@@ -186,24 +202,34 @@ export function SupplierHistory() {
         title: "Success",
         description: "Purchase order has been marked as paid.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
       // --- ROBUST ERROR HANDLING ---
       let errorMessage = "An unexpected error occurred.";
-      if (err.response) {
-        if (err.response.status === 400) {
-          // This is the specific error for an already-paid order
+      if (axios.isAxiosError(err)) {
+        // Use type guard
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          if (err.response.status === 400) {
+            // This is the specific error for an already-paid order
+            errorMessage =
+              err.response.data.detail || "This order is already paid.";
+          } else if (err.response.status === 404) {
+            errorMessage =
+              err.response.data.detail || "This order could not be found.";
+          } else {
+            errorMessage =
+              err.response.data.detail ||
+              `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
           errorMessage =
-            err.response.data.detail || "This order is already paid.";
-        } else if (err.response.status === 404) {
-          errorMessage =
-            err.response.data.detail || "This order could not be found.";
+            "Could not connect to the server. Please check your network.";
         } else {
-          errorMessage =
-            err.response.data.detail || `Server error: ${err.response.status}`;
+          errorMessage = err.message; // Generic Axios error message
         }
-      } else if (err.request) {
-        errorMessage =
-          "Could not connect to the server. Please check your network.";
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
