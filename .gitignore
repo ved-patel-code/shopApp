@@ -1,0 +1,14 @@
+# Common OS files
+.DS_Store
+Thumbs.db
+
+# Python
+backend/venv/
+backend/.env
+backend/__pycache__/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.vercel/ # Add this for Vercel local config
