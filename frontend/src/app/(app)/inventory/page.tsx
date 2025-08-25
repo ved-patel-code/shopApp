@@ -61,7 +61,14 @@ export default function InventoryPage() {
     try {
       setIsLoading(true);
       const response = await apiClient.get("/inventory/products");
-      const formattedProducts = response.data.map((p: any) => ({
+      const formattedProducts: Product[] = response.data.map((p: {
+        $id: string;
+        product_code: string;
+        product_name: string;
+        current_total_stock: number;
+        tax_percentage: number;
+        global_selling_price: number;
+      }) => ({
         ...p,
         id: p.$id,
       }));
