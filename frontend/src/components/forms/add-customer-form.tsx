@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import apiClient from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 // Define the full Customer type
 interface Customer {
@@ -55,13 +56,23 @@ export function AddCustomerForm({ onSuccess }: AddCustomerFormProps) {
       const newCustomer = { ...response.data, id: response.data.$id };
       toast({ title: "Success", description: "Customer added successfully." });
       onSuccess(newCustomer);
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = "An unexpected error occurred.";
-      if (err.response) {
-        errorMessage =
-          err.response.data.detail || `Server error: ${err.response.status}`;
-      } else if (err.request) {
-        errorMessage = "Could not connect to the server.";
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          errorMessage =
+            err.response.data.detail || `Server error: ${err.response.status}`;
+        } else if (err.request) {
+          // If response is undefined but request was made (e.g., network error before response)
+          errorMessage =
+            "Could not connect to the server or no response received.";
+        } else {
+          // Fallback for Axios errors that don't have response or request (e.g., config error)
+          errorMessage = err.message;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
