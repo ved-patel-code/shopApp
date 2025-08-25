@@ -40,7 +40,10 @@ interface BillItem {
 
 interface AddToCreditFormProps {
   customerId: string;
-  onSuccess: (updatedCustomer: any) => void; // Callback to update the parent page
+  onSuccess: (updatedCustomer: {
+    id: string;
+    outstanding_balance: number;
+  }) => void; // Callback to update the parent page
 }
 
 export function AddToCreditForm({
@@ -254,19 +257,29 @@ export function AddToCreditForm({
       setBillItems([]);
       setSearchQuery("");
       setPrintBill(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
       let errorMessage = "An unexpected error occurred during checkout.";
-      if (err.response) {
-        // Handle specific errors from the backend
-        if (err.response.status === 409) {
-          errorMessage =
-            "Stock levels changed. Please review the bill and try again.";
+      if (axios.isAxiosError(err)) {
+        // Use type guard
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          // Handle specific errors from the backend
+          if (err.response.status === 409) {
+            errorMessage =
+              "Stock levels changed. Please review the bill and try again.";
+          } else {
+            errorMessage =
+              err.response.data.detail ||
+              `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
         } else {
-          errorMessage =
-            err.response.data.detail || `Server error: ${err.response.status}`;
+          errorMessage = err.message; // Generic Axios error message
         }
-      } else if (err.request) {
-        errorMessage = "Could not connect to the server.";
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
@@ -382,7 +395,13 @@ export function AddToCreditForm({
 
         if (response.data.is_sufficient_stock) {
           const newBillItemsFromSim = response.data.line_items.map(
-            (simItem: any): BillItem => ({
+            (simItem: {
+              batch_id: string;
+              quantity_to_sell: number;
+              cost_price: number;
+              suggested_selling_price: number;
+              available_stock_in_batch: number;
+            }): BillItem => ({
               line_id: simItem.batch_id,
               product_id: itemToUpdate.product_id,
               product_name: itemToUpdate.product_name,
