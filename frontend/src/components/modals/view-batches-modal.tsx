@@ -62,10 +62,18 @@ export function ViewBatchesModal({
       const response = await apiClient.get(
         `/inventory/products/${product.id}/batches`
       );
-      const formattedBatches = response.data.map((b: any) => ({
-        ...b,
-        id: b.$id,
-      }));
+       const formattedBatches: Batch[] = response.data.map(
+         (b: {
+           $id: string;
+           quantity_in_stock: number;
+           cost_price: number;
+           selling_price: number;
+           date_received: string;
+         }) => ({
+           ...b,
+           id: b.$id,
+         })
+       );
       setBatches(formattedBatches);
     } catch (err) {
       console.error("Failed to fetch batches:", err);
