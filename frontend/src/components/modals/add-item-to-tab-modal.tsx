@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import apiClient from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -34,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronsUpDown, Trash2 } from "lucide-react";
+import axios from "axios";
 
 // --- Type Definitions ---
 interface Customer {
@@ -41,6 +41,7 @@ interface Customer {
   name: string;
 }
 interface Product {
+  $id: string;
   id: string;
   product_name: string;
   product_code: string;
@@ -63,7 +64,7 @@ interface AddItemToTabModalProps {
   customer: Customer | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (updatedCustomer: any) => void;
+  onSuccess: (updatedCustomer: Customer) => void;
 }
 
 export function AddItemToTabModal({
@@ -85,7 +86,7 @@ export function AddItemToTabModal({
   useEffect(() => {
     if (isOpen) {
       apiClient.get("/inventory/products").then((res) => {
-        setAllProducts(res.data.map((p: any) => ({ ...p, id: p.$id })));
+        setAllProducts(res.data.map((p: Product) => ({ ...p, id: p.$id })));
       });
     }
   }, [isOpen]);
@@ -163,11 +164,26 @@ export function AddItemToTabModal({
         description: `Items added to ${customer.name}'s tab.`,
       });
       onSuccess(response.data); // Pass the updated customer data back to the parent
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
+      let errorMessage = "An unexpected error occurred.";
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          errorMessage =
+            err.response.data.detail || `Server error: ${err.response.status}`;
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
+        } else {
+          errorMessage = err.message;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
       toast({
         variant: "destructive",
         title: "Failed to Add Items",
-        description: err.response?.data?.detail || "An error occurred.",
+        description: errorMessage || "An error occurred.",
       });
     } finally {
       setIsSubmitting(false);
