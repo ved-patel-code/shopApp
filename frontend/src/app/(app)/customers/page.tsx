@@ -73,10 +73,18 @@ export default function CustomerTabsPage() {
       setIsLoading(true);
       try {
         const response = await apiClient.get("/customers/");
-        const formattedCustomers: Customer[] = response.data.map((c: any) => ({
-          ...c,
-          id: c.$id,
-        }));
+        const formattedCustomers: Customer[] = response.data.map(
+          (c: {
+            $id: string;
+            name: string;
+            contact: string;
+            address?: string | null;
+            outstanding_balance: number;
+          }) => ({
+            ...c,
+            id: c.$id,
+          })
+        );
         setCustomers(formattedCustomers);
         // Automatically select the first customer if the list is not empty
         if (formattedCustomers.length > 0) {
@@ -106,7 +114,13 @@ export default function CustomerTabsPage() {
           `/customers/${selectedCustomer.id}/ledger`
         );
         const formattedLedger: LedgerItem[] = response.data.map(
-          (item: any) => ({
+          (item: {
+            $id: string;
+            transaction_date: string;
+            amount: number;
+            items?: BillItemDetails[];
+            sales_order_id: string | null;
+          }) => ({
             ...item,
             id: item.$id, // Assuming the backend service maps this for us
           })

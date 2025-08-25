@@ -1,7 +1,6 @@
 "use client";
 
 
-import { PaymentDetailsModal } from "@/components/modals/payment-details-modal";
 import {
   Popover,
   PopoverContent,
@@ -17,7 +16,7 @@ import {
 } from "@/components/ui/command";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,7 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+
 import {
   Table,
   TableBody,
@@ -36,12 +35,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
+
 import { PaginationControl } from "@/components/ui/pagination-control";
 import apiClient from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState, useCallback } from "react";
-import { toast } from "@/hooks/use-toast";
+
 import { BillDetailsModal } from "@/components/modals/bill-details-modal"
 interface SaleHistoryItem {
   id: string;
@@ -49,12 +48,6 @@ interface SaleHistoryItem {
   sale_date_time: string;
   grand_total: number;
   payment_method: string;
-}
-interface PaginatedData<T> {
-  total: number;
-  limit: number;
-  offset: number;
-  data: T[];
 }
 
 interface SaleDetailItem {
@@ -136,104 +129,119 @@ export default function OrderHistoryPage() {
   };
 
   // --- Fetch POS Sales ---
-  const fetchPosSales = useCallback(async (page: number) => {
-    // If already cached, skip
-    if (posSalesCache[page]) return;
+  const fetchPosSales = useCallback(
+    async (page: number) => {
+      // If already cached, skip
+      if (posSalesCache[page]) return;
 
-    setIsPosSalesLoading(true);
-    try {
-      const response = await apiClient.get(`/reports/sales?page=${page}`);
-      const { total, limit, data } = response.data;
+      setIsPosSalesLoading(true);
+      try {
+        const response = await apiClient.get(`/reports/sales?page=${page}`);
+        const { total, limit, data } = response.data;
 
-      const formattedData = data.map((item: any) => ({
-        ...item,
-        id: item.$id,
-      }));
-
-      setPosSalesCache((prev) => ({ ...prev, [page]: formattedData }));
-
-      setPosSalesTotalPages((prevTotal) =>
-        prevTotal === 1 && total > 0 ? Math.ceil(total / limit) : prevTotal
-      );
-    } catch (error) {
-      console.error("Failed to fetch POS sales:", error);
-    } finally {
-      setIsPosSalesLoading(false);
-    }
-  }, []); // 👈 stable, no cache dep
-
-  // --- Fetch Price Overrides ---
-  const fetchAndFilterOverrides = useCallback(async (page: number) => {
-    // If page already checked, skip
-    if (overridePagesChecked[page]) return;
-
-    setOverridePagesChecked((prev) => ({ ...prev, [page]: true }));
-    setIsOverrideLoading(true);
-
-    try {
-      const summaryRes = await apiClient.get(`/reports/sales?page=${page}`);
-      const { total, limit, data: salesSummaries } = summaryRes.data;
-
-      setOverrideTotalPages((prevTotal) =>
-        prevTotal === 1 && total > 0 ? Math.ceil(total / limit) : prevTotal
-      );
-
-      const validSummaries = salesSummaries.filter(
-        (sale: SaleHistoryItem) => sale && sale.id
-      );
-
-      if (validSummaries.length === 0) {
-        setOverrideSalesCache((prev) => ({ ...prev, [page]: [] }));
-        return;
-      }
-
-      const detailResponses = await Promise.all(
-        validSummaries.map((sale: SaleHistoryItem) =>
-          apiClient.get(`/reports/sales/${sale.id}`)
-        )
-      );
-
-      const salesWithOverrides: OverrideSale[] = [];
-      detailResponses.forEach((detailRes) => {
-        const fullSale = detailRes.data;
-        if (!fullSale?.items_sold) return;
-
-        try {
-          const itemsSold: SaleDetailItem[] = fullSale.items_sold; 
-          const overriddenItems = itemsSold.filter(
-            (item) =>
-              item.original_selling_price_per_unit != null &&
-            item.actual_selling_price_per_unit != null &&
-            item.original_selling_price_per_unit !==
-            item.actual_selling_price_per_unit
+        const formattedData = data.map(
+          (item: {
+            $id: string;
+            bill_number: string;
+            sale_date_time: string;
+            grand_total: number;
+            payment_method: string;
+          }) => ({
+            ...item,
+            id: item.$id,
+          })
         );
 
-          if (overriddenItems.length > 0) {
-            const summary = validSummaries.find(
-              (s: SaleHistoryItem) => s.id === fullSale.$id
-            );
-            if (summary) {
-              salesWithOverrides.push({
-                ...summary,
-                overridden_items: overriddenItems,
-              });
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse items_sold:", fullSale.$id, e);
-        }
-      });
+        setPosSalesCache((prev) => ({ ...prev, [page]: formattedData }));
 
-      setOverrideSalesCache((prev) => ({
-        ...prev,
-        [page]: salesWithOverrides,
-      }));
-    } catch (error) {
-      console.error("Failed to fetch price overrides:", error);
-    } finally {
-      setIsOverrideLoading(false);
-    }
-  }, []);
+        setPosSalesTotalPages((prevTotal) =>
+          prevTotal === 1 && total > 0 ? Math.ceil(total / limit) : prevTotal
+        );
+      } catch (error) {
+        console.error("Failed to fetch POS sales:", error);
+      } finally {
+        setIsPosSalesLoading(false);
+      }
+    },
+    [posSalesCache]
+  ); // 👈 stable, no cache dep
+
+  // --- Fetch Price Overrides ---
+  const fetchAndFilterOverrides = useCallback(
+    async (page: number) => {
+      // If page already checked, skip
+      if (overridePagesChecked[page]) return;
+
+      setOverridePagesChecked((prev) => ({ ...prev, [page]: true }));
+      setIsOverrideLoading(true);
+
+      try {
+        const summaryRes = await apiClient.get(`/reports/sales?page=${page}`);
+        const { total, limit, data: salesSummaries } = summaryRes.data;
+
+        setOverrideTotalPages((prevTotal) =>
+          prevTotal === 1 && total > 0 ? Math.ceil(total / limit) : prevTotal
+        );
+
+        const validSummaries = salesSummaries.filter(
+          (sale: SaleHistoryItem) => sale && sale.id
+        );
+
+        if (validSummaries.length === 0) {
+          setOverrideSalesCache((prev) => ({ ...prev, [page]: [] }));
+          return;
+        }
+
+        const detailResponses = await Promise.all(
+          validSummaries.map((sale: SaleHistoryItem) =>
+            apiClient.get(`/reports/sales/${sale.id}`)
+          )
+        );
+
+        const salesWithOverrides: OverrideSale[] = [];
+        detailResponses.forEach((detailRes) => {
+          const fullSale: { $id: string; items_sold: SaleDetailItem[] } =
+            detailRes.data;
+          if (!fullSale?.items_sold) return;
+
+          try {
+            const itemsSold: SaleDetailItem[] = fullSale.items_sold;
+            const overriddenItems = itemsSold.filter(
+              (item) =>
+                item.original_selling_price_per_unit != null &&
+                item.actual_selling_price_per_unit != null &&
+                item.original_selling_price_per_unit !==
+                  item.actual_selling_price_per_unit
+            );
+
+            if (overriddenItems.length > 0) {
+              const summary = validSummaries.find(
+                (s: SaleHistoryItem) => s.id === fullSale.$id
+              );
+              if (summary) {
+                salesWithOverrides.push({
+                  ...summary,
+                  overridden_items: overriddenItems,
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse items_sold:", fullSale.$id, e);
+          }
+        });
+
+        setOverrideSalesCache((prev) => ({
+          ...prev,
+          [page]: salesWithOverrides,
+        }));
+      } catch (error) {
+        console.error("Failed to fetch price overrides:", error);
+      } finally {
+        setIsOverrideLoading(false);
+      }
+    },
+    [overridePagesChecked]
+  );
 
   // --- Effects ---
   useEffect(() => {
@@ -265,33 +273,46 @@ export default function OrderHistoryPage() {
         // Step 2: For credit sales, create promises to fetch their item details
         const detailPromises = transactions
           .filter(
-            (t: any) => t.transaction_type === "Credit_Sale" && t.sales_order_id
+            (t: { transaction_type: string; sales_order_id: string | null }) =>
+              t.transaction_type === "Credit_Sale" && t.sales_order_id
           )
-          .map((t: any) => apiClient.get(`/reports/sales/${t.sales_order_id}`));
+          .map((t: { sales_order_id: string }) =>
+            apiClient.get(`/reports/sales/${t.sales_order_id}`)
+          );
 
         const detailResponses = await Promise.all(detailPromises);
 
         // Step 3: Map transaction data to our TimelineEntry format
-        const timelineEntries: TimelineEntry[] = transactions.map((t: any) => {
-          let items: SaleDetailItem[] | undefined = undefined;
-          if (t.transaction_type === "Credit_Sale" && t.sales_order_id) {
-            const detail = detailResponses.find(
-              (res) => res.data.$id === t.sales_order_id
-            );
-            if (detail) {
-              items = items = detail.data.items_sold;
+        const timelineEntries: TimelineEntry[] = transactions.map(
+          (t: {
+            $id: string;
+            transaction_date: string;
+            transaction_type: "Credit_Sale" | "Payment";
+            amount: number;
+            customer_id: string;
+            sales_order_id: string | null;
+            payment_method?: "Cash" | "UPI";
+          }) => {
+            let items: SaleDetailItem[] | undefined = undefined;
+            if (t.transaction_type === "Credit_Sale" && t.sales_order_id) {
+              const detail = detailResponses.find(
+                (res) => res.data.$id === t.sales_order_id
+              );
+              if (detail) {
+                items = items = detail.data.items_sold;
+              }
             }
+            return {
+              id: t.$id,
+              date: t.transaction_date,
+              type: t.transaction_type,
+              amount: t.amount,
+              items: items,
+              customer_id: t.customer_id,
+              payment_method: t.payment_method,
+            };
           }
-          return {
-            id: t.$id,
-            date: t.transaction_date,
-            type: t.transaction_type,
-            amount: t.amount,
-            items: items,
-            customer_id: t.customer_id,
-            payment_method: t.payment_method
-          };
-        });
+        );
 
         
 
@@ -320,7 +341,12 @@ export default function OrderHistoryPage() {
   // Initial fetch for the customer list dropdown
   useEffect(() => {
     apiClient.get("/customers/").then((res) => {
-      setCustomerList(res.data.map((c: any) => ({ id: c.$id, name: c.name })));
+      setCustomerList(
+        res.data.map((c: { $id: string; name: string }) => ({
+          id: c.$id,
+          name: c.name,
+        }))
+      );
     });
   }, []);
 

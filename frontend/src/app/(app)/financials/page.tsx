@@ -7,7 +7,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -89,7 +88,17 @@ export default function FinancialsPage() {
 
 
       setSummary(summaryRes.data);
-      setOperatingCosts(costsRes.data.map((c: any) => ({ ...c, id: c.$id })));
+      setOperatingCosts(
+        costsRes.data.map(
+          (c: {
+            $id: string;
+            expense_date: string;
+            expense_name: string;
+            description: string | null;
+            amount: number;
+          }) => ({ ...c, id: c.$id })
+        )
+      );
 
       const stateUpdateTime = new Date().toISOString();
       console.log(`[FRONT] State updated at: ${stateUpdateTime}`);
