@@ -53,14 +53,24 @@ export default function SuppliersPage() {
         apiClient.get("/inventory/products"),
       ]);
 
-      const formattedSuppliers = supplierRes.data.map((s: any) => ({
-        ...s,
-        id: s.$id,
-      }));
-      const formattedProducts = productRes.data.map((p: any) => ({
-        ...p,
-        id: p.$id,
-      }));
+      const formattedSuppliers: Supplier[] = supplierRes.data.map(
+        (s: {
+          $id: string;
+          name: string;
+          contact: string;
+          address?: string;
+          gstin_number?: string;
+        }) => ({
+          ...s,
+          id: s.$id,
+        })
+      );
+       const formattedProducts: Product[] = productRes.data.map(
+         (p: { $id: string; product_name: string; product_code: string }) => ({
+           ...p,
+           id: p.$id,
+         })
+       );
 
       setSuppliers(formattedSuppliers);
       setProducts(formattedProducts);
