@@ -69,7 +69,7 @@ export function AddExpenseForm({ onSuccess }: AddExpenseFormProps) {
       toast({ title: "Success", description: "Operating cost recorded." });
       onSuccess(newCost);
     } catch (err: unknown) {
-      // Changed 'any' to 'unknown'
+     
       let errorMessage = "An unexpected error occurred.";
       if (axios.isAxiosError(err)) {
         // Use type guard

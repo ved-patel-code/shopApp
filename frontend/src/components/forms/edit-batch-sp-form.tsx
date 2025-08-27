@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import apiClient from "@/lib/api";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import axios from "axios";
 
 // Define the validation schema
 const formSchema = z.object({
@@ -38,7 +39,7 @@ export function EditBatchSPForm({
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     defaultValues: {
       selling_price: currentSp,
     },
@@ -51,10 +52,20 @@ export function EditBatchSPForm({
       // Call the PUT endpoint with the batch's ID
       await apiClient.put(`/inventory/batches/${batchId}`, values);
       onSuccess(); // Call the success callback to close modal and refresh
-    } catch (err: any) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
+      if (axios.isAxiosError(err)) {
+        // Use type guard for AxiosError
+        if (err.response && err.response.data && err.response.data.detail) {
+          setError(err.response.data.detail);
+        } else {
+          setError("An unexpected error occurred. Please try again.");
+        }
+      } else if (err instanceof Error) {
+        // Handle generic JavaScript errors
+        setError(err.message);
       } else {
+        // Fallback for any other unknown error type
         setError("An unexpected error occurred. Please try again.");
       }
     } finally {
