@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import apiClient from "@/lib/api";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import axios from "axios";
 
 // Define the validation schema (same as the create form)
 const formSchema = z.object({
@@ -49,7 +50,7 @@ export function EditProductForm({ product, onSuccess }: EditProductFormProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     // Pre-fill the form with the existing product data
     defaultValues: {
       product_name: product.product_name,
@@ -66,9 +67,15 @@ export function EditProductForm({ product, onSuccess }: EditProductFormProps) {
       // Call the PUT endpoint with the product's ID
       await apiClient.put(`/inventory/products/${product.id}`, values);
       onSuccess(); // Call the success callback to close modal and refresh
-    } catch (err: any) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
+      } catch (err: unknown) { // Changed 'any' to 'unknown'
+      if (axios.isAxiosError(err)) { // Use type guard for AxiosError
+        if (err.response && err.response.data && err.response.data.detail) {
+          setError(err.response.data.detail);
+        } else {
+          setError("An unexpected error occurred. Please try again.");
+        }
+      } else if (err instanceof Error) { // Handle generic JavaScript errors
+        setError(err.message);
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
