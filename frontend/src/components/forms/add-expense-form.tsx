@@ -17,6 +17,7 @@ import apiClient from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import axios from "axios";
 
 // Define the type for the newly created cost object
 interface OperatingCost {
@@ -30,7 +31,7 @@ interface OperatingCost {
 const formSchema = z.object({
   expense_name: z.string().min(2, "Expense name is required."),
   amount: z.coerce.number().min(0.01, "Amount must be greater than zero."),
-  expense_date: z.date({ message: "Please select a date." }),
+  expense_date: z.coerce.date({ message: "Please select a date." }),
   description: z.string().optional(),
 });
 
@@ -43,7 +44,7 @@ export function AddExpenseForm({ onSuccess }: AddExpenseFormProps) {
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     defaultValues: {
       expense_name: "",
       amount: 0,
@@ -67,11 +68,27 @@ export function AddExpenseForm({ onSuccess }: AddExpenseFormProps) {
       const newCost = { ...response.data, id: response.data.$id };
       toast({ title: "Success", description: "Operating cost recorded." });
       onSuccess(newCost);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
+      let errorMessage = "An unexpected error occurred.";
+      if (axios.isAxiosError(err)) {
+        // Use type guard
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          errorMessage =
+            err.response.data.detail || `Server error: ${err.response.status}`;
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
+        } else {
+          errorMessage = err.message; // Generic Axios error message
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
       toast({
         variant: "destructive",
         title: "Error",
-        description: err.response?.data?.detail || "Failed to record expense.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
