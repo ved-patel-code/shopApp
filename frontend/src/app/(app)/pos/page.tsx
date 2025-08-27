@@ -14,6 +14,7 @@ import { Trash2 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAppSettings } from "@/lib/use-app-settings"; 
+import axios from "axios";
 // --- Type Definitions for our data ---
 interface ProductSearchResult {
   $id: string;
@@ -164,12 +165,26 @@ export default function PosPage() {
       };
 
       setBillItems((prevItems) => [...prevItems, newBillItem]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
+      let errorMessage = "Failed to add product to bill."; // Initialize with a generic message
+      if (axios.isAxiosError(err)) {
+        // Use type guard for AxiosError
+        if (err.response && err.response.data && err.response.data.detail) {
+          errorMessage = err.response.data.detail;
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
+        } else {
+          errorMessage = err.message; // Generic Axios error message
+        }
+      } else if (err instanceof Error) {
+        // Handle generic JavaScript errors
+        errorMessage = err.message;
+      }
       toast({
         variant: "destructive",
         title: "Error",
-        description:
-          err.response?.data?.detail || "Failed to add product to bill.",
+        description: errorMessage || "Failed to add product to bill.",
       });
     } finally {
       setSearchQuery("");
@@ -246,19 +261,30 @@ export default function PosPage() {
       setBillItems([]);
       setSearchQuery("");
       setPrintBill(settings.defaultToPrintBill);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      // Changed 'any' to 'unknown'
       let errorMessage = "An unexpected error occurred during checkout.";
-      if (err.response) {
-        // Handle specific errors from the backend
-        if (err.response.status === 409) {
-          errorMessage =
-            "Stock levels changed. Please review the bill and try again.";
+      if (axios.isAxiosError(err)) {
+        // Use type guard for AxiosError
+        if (err.response) {
+          // Explicitly check if err.response is defined
+          if (err.response.status === 409) {
+            errorMessage =
+              err.response.data.detail ||
+              "Stock levels changed. Please review the bill and try again.";
+          } else {
+            errorMessage =
+              err.response.data.detail ||
+              `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
+          errorMessage = "Could not connect to the server.";
         } else {
-          errorMessage =
-            err.response.data.detail || `Server error: ${err.response.status}`;
+          errorMessage = err.message; // Generic Axios error message
         }
-      } else if (err.request) {
-        errorMessage = "Could not connect to the server.";
+      } else if (err instanceof Error) {
+        // Handle generic JavaScript errors
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
@@ -354,15 +380,27 @@ export default function PosPage() {
             handleRemoveItem(itemToUpdate.product_id);
           }
         }
-      } catch (error: any) {
+      } catch (err: unknown) {
+        // Changed 'any' to 'unknown'. Using 'err' consistently instead of 'error'
+        let errorMessage = "Failed to update quantity."; // Initialize with a generic message
+        if (axios.isAxiosError(err)) {
+          if (err.response && err.response.data && err.response.data.detail) {
+            errorMessage = err.response.data.detail;
+          } else if (err.request) {
+            errorMessage = "Could not connect to the server.";
+          } else {
+            errorMessage = err.message;
+          }
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        }
         toast({
           variant: "destructive",
           title: "Error",
-          description:
-            error.response?.data?.detail || "Failed to update quantity.",
+          description: errorMessage || "Failed to update quantity.",
         });
-        // On API error, it's safest to just log and let the user manually correct.
-        console.error("API error during simulation:", error);
+
+        
       }
     },
     [billItems, toast, handleRemoveItem]
