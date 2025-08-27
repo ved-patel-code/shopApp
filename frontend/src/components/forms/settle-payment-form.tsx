@@ -29,7 +29,9 @@ interface Customer {
 // Zod validation schema
 const formSchema = z.object({
   payment_method: z.enum(["Cash", "UPI"], {
-    error: "You need to select a payment method.",
+    // Use 'required_error' or 'invalid_type_error' instead of 'error'
+    required_error: "You need to select a payment method.",
+    invalid_type_error: "You need to select a payment method.", // Good practice to include both
   }),
 });
 
