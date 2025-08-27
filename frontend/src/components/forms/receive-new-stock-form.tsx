@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "../ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "../ui/calendar";
+import axios from "axios";
 
 // --- Type Definitions ---
 interface Supplier {
@@ -94,7 +95,7 @@ export function ReceiveNewStockForm({
   >({});
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     defaultValues: {
       payment_status: "Unpaid",
       items: [],
@@ -133,23 +134,34 @@ export function ReceiveNewStockForm({
       });
       form.reset(); // Resets all form fields to their default values
       replace([]); // Explicitly removes all items from the field array
-    } catch (err: any) {
+    } catch (err: unknown) { // Changed 'any' to 'unknown'
       // --- ROBUST ERROR HANDLING ---
       let errorMessage = "An unexpected error occurred.";
-      if (err.response) {
-        if (err.response.status === 422) {
-          // Handle detailed validation errors from FastAPI
-          const errors = err.response.data.detail;
-          const specificError = errors[0]?.msg || "Validation error";
-          const errorLocation = errors[0]?.loc?.join(" > ") || "input";
-          errorMessage = `Error in '${errorLocation}': ${specificError}`;
-        } else {
+      if (axios.isAxiosError(err)) { // Use type guard
+        if (err.response) { // Explicitly check for response
+          if (err.response.status === 422) {
+            // Handle detailed validation errors from FastAPI
+            const errors = err.response.data.detail;
+            // Ensure errors and their structure are checked before accessing properties
+            const specificError = Array.isArray(errors) && errors.length > 0 && errors[0]?.msg
+                                  ? errors[0].msg
+                                  : "Validation error";
+            const errorLocation = Array.isArray(errors) && errors.length > 0 && errors[0]?.loc?.join(" > ")
+                                  ? errors[0].loc.join(" > ")
+                                  : "input";
+            errorMessage = `Error in '${errorLocation}': ${specificError}`;
+          } else {
+            errorMessage =
+              err.response.data.detail || `Server error: ${err.response.status}`;
+          }
+        } else if (err.request) {
           errorMessage =
-            err.response.data.detail || `Server error: ${err.response.status}`;
+            "Could not connect to the server. Please check your network.";
+        } else {
+          errorMessage = err.message; // Generic Axios error message
         }
-      } else if (err.request) {
-        errorMessage =
-          "Could not connect to the server. Please check your network.";
+      } else if (err instanceof Error) { // Handle generic JS errors
+        errorMessage = err.message;
       }
       toast({
         variant: "destructive",
