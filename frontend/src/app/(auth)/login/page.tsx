@@ -19,6 +19,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await axios.post("http://127.0.0.1:8000/auth/login", { email });
+      await apiClient.post("/auth/login", { email });
       setSuccess("Login code sent! Check your email.");
       setStep(2); // Move to OTP entry step
     } catch (err: unknown) {
