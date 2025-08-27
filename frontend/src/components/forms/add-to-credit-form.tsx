@@ -529,7 +529,7 @@ export function AddToCreditForm({
                         searchResults.length === 0 &&
                         searchQuery.length > 1 && (
                           <div className="p-4 text-sm">
-                            No products found for "{searchQuery}".
+                            No products found for &quot;{searchQuery}&quot;.
                           </div>
                         )}
                       {searchResults.length > 0 && (
@@ -687,14 +687,14 @@ export function AddToCreditForm({
                 Print Bill
               </Label>
             </div>
-            <Button 
-            size="lg" 
-            className="w-full"
-            onClick={handleAddToCredit}
-            disabled={isCheckingOut || billItems.length === 0}
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleAddToCredit}
+              disabled={isCheckingOut || billItems.length === 0}
             >
-            {isCheckingOut ? "Adding..." : "Add to Credit"}
-        </Button>
+              {isCheckingOut ? "Adding..." : "Add to Credit"}
+            </Button>
           </CardFooter>
         </Card>
       </div>

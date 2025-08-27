@@ -472,7 +472,7 @@ export default function PosPage() {
                         searchResults.length === 0 &&
                         searchQuery.length > 1 && (
                           <div className="p-4 text-sm">
-                            No products found for "{searchQuery}".
+                            No products found for &quot;{searchQuery}&quot;.
                           </div>
                         )}
                       {searchResults.length > 0 && (
@@ -560,8 +560,7 @@ export default function PosPage() {
                         />
                       </TableCell>
                       <TableCell className="font-semibold">
-                        ₹
-                        {(item.quantity * item.selling_price).toFixed(2)}
+                        ₹{(item.quantity * item.selling_price).toFixed(2)}
                       </TableCell>
                       <TableCell>
                         <Button
