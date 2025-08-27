@@ -40,10 +40,15 @@ interface BillItem {
 
 interface AddToCreditFormProps {
   customerId: string;
-  onSuccess: (updatedCustomer: {
-    id: string;
-    outstanding_balance: number;
-  }) => void; // Callback to update the parent page
+  onSuccess: (updatedCustomer: Customer) => void;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  contact: string;
+  address?: string | null;
+  outstanding_balance: number;
 }
 
 export function AddToCreditForm({
@@ -317,11 +322,21 @@ export function AddToCreditForm({
         `/customers/${customerId}/add-credit`,
         payload
       );
+      
+      const updatedCustomer: Customer = {
+        id: response.data.$id, // 👈 convert $id → id
+        name: response.data.name,
+        contact: response.data.contact,
+        address: response.data.address,
+        outstanding_balance: response.data.outstanding_balance,
+      };
       toast({
         title: "Success!",
         description: "Items added to customer's tab.",
       });
-      onSuccess(response.data); // Pass the updated customer data back to the parent
+      
+
+      onSuccess(updatedCustomer);
     } catch (err: unknown) {
       // Use unknown
       let errorMessage = "An unexpected error occurred.";
